@@ -1,0 +1,91 @@
+version: 1
+description: |
+  INC reg  <->  ADD reg, 1
+  DEC reg  <->  SUB reg, 1
+
+  Same numeric effect (reg += 1 / reg -= 1), but the carry flag bits
+  diverge: INC and DEC preserve CF (Intel SDM Vol. 2A: "The CF flag is
+  not affected"), while ADD/SUB set CF based on unsigned overflow /
+  borrow. ZF/SF/PF/AF/OF are identical between the two forms. We
+  therefore declare these rules as `equivalent_if_dead` and gate them
+  on CF being dead at the use site - the flag-liveness analysis
+  already pulls that out of the basic block.
+
+  RSP and RBP are blacklisted: rewriting `inc rsp` or `dec rbp` is
+  legal x86, but typical function prologues/epilogues that show those
+  patterns rely on the byte-exact form for stack-unwind metadata.
+  Equivalence-proof harness:
+  `tests/unit/rule_equivalence_proof_test.cpp`.
+
+rules:
+  - id: x64.inc.to_add1
+    description: "INC reg  ->  ADD reg, 1  (differs in CF only)"
+    match:
+      mnemonic: INC
+      operand_count: 1
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: ADD
+      operands:
+        - { copy_from: 0 }
+        - { kind: immediate, value: 1, size_bits: 8 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [CF]
+    size_delta: -1
+    weight: 0.7
+
+  - id: x64.add1.to_inc
+    description: "ADD reg, 1  ->  INC reg  (differs in CF only)"
+    match:
+      mnemonic: ADD
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: immediate, imm: 1 }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: INC
+      operands:
+        - { copy_from: 0 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [CF]
+    size_delta: 1
+    weight: 0.6
+
+  - id: x64.dec.to_sub1
+    description: "DEC reg  ->  SUB reg, 1  (differs in CF only)"
+    match:
+      mnemonic: DEC
+      operand_count: 1
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: SUB
+      operands:
+        - { copy_from: 0 }
+        - { kind: immediate, value: 1, size_bits: 8 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [CF]
+    size_delta: -1
+    weight: 0.7
+
+  - id: x64.sub1.to_dec
+    description: "SUB reg, 1  ->  DEC reg  (differs in CF only)"
+    match:
+      mnemonic: SUB
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: immediate, imm: 1 }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: DEC
+      operands:
+        - { copy_from: 0 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [CF]
+    size_delta: 1
+    weight: 0.6

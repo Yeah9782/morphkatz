@@ -1,0 +1,70 @@
+version: 1
+description: |
+  SHL reg, 1  <->  ADD reg, reg
+
+  Both encodings double the destination register (reg <<= 1 is the same
+  as reg + reg). For shift count == 1, Intel SDM Vol. 2A defines the
+  flag effects explicitly:
+
+    SHL reg, 1 :
+      CF = MSB of original reg
+      OF = MSB_result XOR CF       (== sign-bit flipped)
+      SF, ZF, PF based on result
+      AF = undefined
+
+    ADD reg, reg (with reg == reg):
+      CF = unsigned overflow == MSB_a   (since a + a wraps iff a >= 2^63)
+      OF = signed overflow   == MSB_a XOR MSB_result
+      SF, ZF, PF based on result
+      AF = (low nibble carry)         (defined for ADD; undefined for SHL)
+
+  CF, OF, SF, ZF, PF agree across the two encodings. Only AF diverges:
+  SHL leaves it undefined, ADD sets it from the bit-3 carry. We declare
+  the swap as `equivalent_if_dead` with AF in the diff mask.
+
+  Plan-document tip: an earlier sketch listed CF/OF in the diff mask,
+  but per the SDM cite above they're actually identical. AF is the
+  real divergence.
+
+  Equivalence-proof harness:
+  `tests/unit/rule_equivalence_proof_test.cpp`.
+
+rules:
+  - id: x64.shl1.to_add_self
+    description: "SHL reg, 1  ->  ADD reg, reg  (differs in AF only; SHL leaves AF undefined)"
+    match:
+      mnemonic: SHL
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: immediate, imm: 1 }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: ADD
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 0 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [AF]
+    size_delta: 0
+    weight: 0.5
+
+  - id: x64.add_self.to_shl1
+    description: "ADD reg, reg  ->  SHL reg, 1  (same-register form; differs in AF only)"
+    match:
+      mnemonic: ADD
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: SHL
+      operands:
+        - { copy_from: 0 }
+        - { kind: immediate, value: 1, size_bits: 8 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [AF]
+    size_delta: 0
+    weight: 0.5

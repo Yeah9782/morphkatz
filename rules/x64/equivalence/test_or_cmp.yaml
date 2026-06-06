@@ -1,0 +1,63 @@
+version: 1
+description: |
+  TEST reg, reg  <->  OR reg, reg   (same-register form)
+
+  Both instructions, when the two operands are the same register, leave
+  the register unchanged and produce the same six arithmetic flags:
+    - CF = 0
+    - OF = 0
+    - SF = MSB(reg)
+    - ZF = (reg == 0)
+    - PF = parity(low 8 bits of reg)
+    - AF = undefined (both)
+  The AF bit is documented as undefined for both opcodes (Intel SDM
+  Vol. 2B), so we declare the swap as `equivalent_if_dead` with AF in
+  the diff mask. In practice CPUs leave AF identical, but the spec is
+  free to diverge.
+
+  The CMP reg, 0  <->  TEST reg, reg  swap already ships in
+  `mov_forms.yaml`; this file only adds the TEST <-> OR forms.
+
+  Equivalence-proof harness:
+  `tests/unit/rule_equivalence_proof_test.cpp`.
+
+rules:
+  - id: x64.test_self.to_or_self
+    description: "TEST reg, reg  ->  OR reg, reg  (same-register form; AF undefined for both)"
+    match:
+      mnemonic: TEST
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+        - { register_blacklist: [RSP] }
+    rewrite:
+      mnemonic: OR
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [AF]
+    size_delta: 0
+    weight: 0.6
+
+  - id: x64.or_self.to_test_self
+    description: "OR reg, reg  ->  TEST reg, reg  (same-register form; AF undefined for both)"
+    match:
+      mnemonic: OR
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+        - { register_blacklist: [RSP] }
+    rewrite:
+      mnemonic: TEST
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [AF]
+    size_delta: 0
+    weight: 0.6
