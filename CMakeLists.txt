@@ -66,6 +66,12 @@ if(MSVC)
     if(MORPHKATZ_ENABLE_ASAN)
         target_compile_options(morphkatz_compile_options INTERFACE /fsanitize=address)
         target_link_options(morphkatz_compile_options    INTERFACE /INCREMENTAL:NO)
+        # vcpkg's Catch2 is built without container annotations enabled, so
+        # the linker refuses to mix it with /fsanitize=address objects unless
+        # we disable annotations on our side. Required for both vs2022-x64-asan
+        # and clang-cl-asan presets (the latter still uses the MSVC STL).
+        target_compile_definitions(morphkatz_compile_options
+            INTERFACE _DISABLE_STRING_ANNOTATION _DISABLE_VECTOR_ANNOTATION)
     endif()
 else()
     target_compile_options(morphkatz_compile_options INTERFACE
@@ -169,6 +175,7 @@ add_library(morphkatz_core STATIC
     # verify
     src/verify/re_disasm_check.cpp
     src/verify/unicorn_verify.cpp
+    src/verify/block_emu.cpp
     # yara targeting
     src/yara/yara_target.cpp
     # scan (Defender Tier-1)
