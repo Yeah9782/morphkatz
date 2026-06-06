@@ -17,10 +17,13 @@ install_manifest.txt
 *.sln.docstates
 *.vcxproj.user
 *.vcxproj.filters.user
-x64/
-x86/
-Debug/
-Release/
+# Anchor VS per-config output dirs to repo root only; otherwise gitignore
+# matches at any depth and silently hides legitimate assets like
+# rules/x64/**/*.yaml. Nested build output is already covered by build/ etc.
+/x64/
+/x86/
+/Debug/
+/Release/
 *.pdb
 *.ilk
 *.exp

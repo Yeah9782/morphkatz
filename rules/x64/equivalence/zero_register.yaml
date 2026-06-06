@@ -1,0 +1,64 @@
+version: 1
+description: |
+  Idioms that zero a GPR. "xor rax, rax" is the canonical form; YARA signatures
+  often key on the 33 C0 / 48 31 C0 byte prefix. These rules provide
+  semantically equivalent alternatives that clear all arithmetic flags in the
+  same way (AF becomes undefined in all cases, matching Intel SDM).
+
+rules:
+  - id: x64.zero.xor_to_sub
+    description: "XOR rX, rX  ->  SUB rX, rX  (identical EFLAGS: CF=0 ZF=1 SF=0 OF=0 PF=1 AF=undef)"
+    match:
+      mnemonic: XOR
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: SUB
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.zero.sub_to_xor
+    description: "SUB rX, rX  ->  XOR rX, rX"
+    match:
+      mnemonic: SUB
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: XOR
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.8
+
+  - id: x64.zero.xor_to_and_imm0
+    description: "XOR rX, rX  ->  AND rX, 0  (needs CF/OF dead downstream: AND clears them, XOR same; PF/ZF/SF identical)"
+    match:
+      mnemonic: XOR
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+        - { register_blacklist: [RSP, RBP] }
+    rewrite:
+      mnemonic: AND
+      operands:
+        - { copy_from: 0 }
+        - { kind: immediate, value: 0, size_bits: 32 }
+    flags_effect: equivalent
+    size_delta: -2
+    weight: 0.35

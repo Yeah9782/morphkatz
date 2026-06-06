@@ -1,0 +1,23 @@
+version: 1
+description: |
+  A pool of multi-byte NOP encodings recommended by the Intel Optimization
+  Manual (Vol. 2A, Table 4-12). The PadPolicy class rotates these at random
+  based on the seeded RNG; this file is here for documentation and for rule
+  authors who want to reference them by id.
+
+rules:
+  - id: x64.nop.66_90
+    description: "2-byte NOP: 66 90 (operand-size prefix + NOP)"
+    match: { mnemonic: NOP }
+    rewrite: { mnemonic: NOP }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.1
+
+  - id: x64.nop.0f_1f
+    description: "3-byte NOP: 0F 1F 00"
+    match: { mnemonic: NOP }
+    rewrite: { mnemonic: NOP }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.1

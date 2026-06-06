@@ -1,0 +1,54 @@
+version: 1
+description: |
+  ADD reg, X   <->   SUB reg, -X
+  SUB reg, X   <->   ADD reg, -X
+
+  These swaps preserve the numeric result (a + X == a - (-X) and
+  a - X == a + (-X)) but the carry, overflow and aux-carry flags
+  carry different *values* in the two encodings: SUB sets CF on
+  borrow (a < X unsigned), ADD sets CF on the wrap-out of a + (-X).
+  We therefore declare them as `equivalent_if_dead` and gate the
+  swap on CF/OF/AF being dead at the use site - the flag liveness
+  analysis already pulls that information from the basic block.
+
+  The rewrite uses `transform: negate` so the encoder negates the
+  source's immediate before re-emitting; without it, `sub a, X`
+  would become `add a, X` which moves a in the wrong direction
+  (caught a mimikatz x64 regression in v0.1).
+
+rules:
+  - id: x64.add_neg_to_sub_pos
+    description: "ADD reg, X -> SUB reg, -X (immediate sign-flipped)"
+    match:
+      mnemonic: ADD
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: immediate }
+    rewrite:
+      mnemonic: SUB
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1, transform: negate }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [CF, OF, AF]
+    size_delta: 0
+    weight: 0.5
+
+  - id: x64.sub_neg_to_add_pos
+    description: "SUB reg, X -> ADD reg, -X (immediate sign-flipped)"
+    match:
+      mnemonic: SUB
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: immediate }
+    rewrite:
+      mnemonic: ADD
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1, transform: negate }
+    flags_effect: equivalent_if_dead
+    flags_value_differs_in: [CF, OF, AF]
+    size_delta: 0
+    weight: 0.5

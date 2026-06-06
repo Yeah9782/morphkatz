@@ -1,0 +1,57 @@
+version: 1
+description: |
+  Opcode-level alternates for the most common reg-reg forms. These rules share
+  the same mnemonic but force the encoder to pick the non-default ModR/M
+  direction. Size-neutral.
+
+rules:
+  - id: x64.enc.mov_reg_reg
+    description: "MOV reg64, reg64 -- flip ModR/M direction bit"
+    match:
+      mnemonic: MOV
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr64 }
+        - { op: 1, kind: register, class: gpr64 }
+    rewrite:
+      mnemonic: MOV
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.6
+
+  - id: x64.enc.and_reg_reg
+    description: "AND reg, reg -- alternate 21 / 23 encoding"
+    match:
+      mnemonic: AND
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+    rewrite:
+      mnemonic: AND
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.5
+
+  - id: x64.enc.or_reg_reg
+    description: "OR reg, reg -- alternate 09 / 0B encoding"
+    match:
+      mnemonic: OR
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+    rewrite:
+      mnemonic: OR
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.5

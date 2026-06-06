@@ -1,0 +1,16 @@
+version: 1
+description: |
+  Targeted byte patch for Cobalt Strike beacon shellcode.
+  Targeted byte-pair patches for CobaltStrike beacons.
+  Replaces "mov rdx, rax; and edx, 3" with "push rax; pop rdx; nop; and edx, 3"
+  (both clobber RDX equivalently).
+
+rules:
+  - id: x64.cs.mov_rdx_rax_pushpop
+    description: "48 89 C2 83 E2 03  ->  50 5A 90 83 E2 03"
+    raw:
+      from: "48 89 C2 83 E2 03"
+      to:   "50 5A 90 83 E2 03"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0

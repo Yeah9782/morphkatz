@@ -1,0 +1,24 @@
+version: 1
+description: |
+  Push/pop re-expressions of mov and jmp sequences.
+  Push/pop peephole patterns (two-instruction window).
+
+  These rules span *two* instructions — they are expressed as peephole patterns
+  in RuleMatcher (not single-instruction rewrites) and therefore require the
+  two-instruction matcher, planned for v1.1. For v1.0 we ship the
+  single-instruction variants inline. The two-insn patterns are catalogued here
+  so that rule authors can see what's coming and map to Python parity.
+
+rules: []
+
+# TODO (v1.1) window-of-N rules:
+#   - push A; mov A,B              ->  push A; push B; pop A
+#   - mov A,B; push A              ->  push B; pop A; push A
+#   - mov A,B; mov C,B             ->  mov A,B; push B; pop C
+#   - mov A,B; mov C,D             ->  mov A,B; push D; pop C
+#   - push A; xor B,B              ->  push A; sub B,B
+#   - xor A,A; dec A               ->  or  A, 0xFFFFFFFFFFFFFFFF
+#   - lea A,[B+C]                  ->  lea A,[C+B]               (SIB swap, needs scale==0)
+#   - push A; jmp B                ->  push A; push B; ret
+#   - mov A,QWORD[A]; test A,A     ->  mov A,QWORD[A]; or A,A
+#   - cmp A,0                      ->  test A,A                  (covered by mov_forms.yaml)

@@ -1,0 +1,59 @@
+version: 1
+description: |
+  Targeted byte patches for mimikatz x64 binaries.
+  Targeted byte-pair patches for Mimikatz x64.
+
+rules:
+  - id: x64.mk.test_rcx_to_or_rcx
+    description: "48 85 C9  ->  48 09 C9 (test rcx,rcx -> or rcx,rcx)"
+    raw:
+      from: "01 00 00 C0 48 85 C9"
+      to:   "01 00 00 C0 48 09 C9"
+    flags_effect: equivalent_if { CF, OF, AF dead }
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.mk.je_rel16_high_byte
+    description: "Bump high byte of je rel16 by +1 (follow-on rel is also patched elsewhere)."
+    raw:
+      from: "24 02 0F 84 00 00"
+      to:   "24 02 0F 84 00 01"
+    flags_effect: not_verified
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.mk.lea_constant_scramble
+    description: "Replace 5-byte LEA prefix with alternate constant pool"
+    raw:
+      from: "05 02 0F 0D 09"
+      to:   "2D FE F0 F2 F6"
+    flags_effect: not_verified
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.mk.indirect_call_byte_swap
+    description: "Swap a rip-relative indirect call prefix byte"
+    raw:
+      from: "24 43 72 64 41 48 FF 15"
+      to:   "24 43 72 64 41 48 00 15"
+    flags_effect: not_verified
+    size_delta: 0
+    weight: 0.6
+
+  - id: x64.mk.movdqu_to_vmovdqu
+    description: "F3 0F 6F ...  ->  VEX-encoded VMOVDQU (C5 FA 6F ...)"
+    raw:
+      from: "F3 0F 6F 6C 24 30"
+      to:   "C5 FA 6F 6C 24 30"
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.mk.mov_rcx_rdx_alt
+    description: "48 8B CA F3  ->  48 89 D1 F3 (mov rcx,rdx; rep ... -> same)"
+    raw:
+      from: "48 8B CA F3"
+      to:   "48 89 D1 F3"
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 1.0

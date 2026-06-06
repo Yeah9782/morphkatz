@@ -1,0 +1,60 @@
+version: 1
+description: |
+  Alternate encodings for MOV reg, reg. Intel allows two opcode bytes
+  (0x89 /r and 0x8B /r) to express the same reg->reg move with swapped
+  ModR/M fields. Rewriting 89 into 8B (and vice-versa) preserves semantics
+  while changing the bytes — very effective against byte-anchored YARA rules.
+
+rules:
+  - id: x64.mov.r_r_alt_89_8b
+    description: "MOV reg, reg -- pick the opposite of Zydis's chosen encoding"
+    match:
+      mnemonic: MOV
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { register_blacklist: [RSP] }
+    rewrite:
+      mnemonic: MOV
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 1 }
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 0.7
+
+  - id: x64.cmp.reg0_to_test_self
+    description: "CMP reg, 0 -> TEST reg, reg (shorter, different bytes, identical flags for arithmetic users)"
+    match:
+      mnemonic: CMP
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: immediate, imm: 0 }
+    rewrite:
+      mnemonic: TEST
+      operands:
+        - { copy_from: 0 }
+        - { copy_from: 0 }
+    flags_effect: equivalent
+    size_delta: -2
+    weight: 0.9
+
+  - id: x64.test_self.to_cmp_imm0
+    description: "TEST reg, reg -> CMP reg, 0 (reverse direction)"
+    match:
+      mnemonic: TEST
+      operand_count: 2
+      constraints:
+        - { op: 0, kind: register, class: gpr }
+        - { op: 1, kind: register, class: gpr }
+        - { same_register: [0, 1] }
+    rewrite:
+      mnemonic: CMP
+      operands:
+        - { copy_from: 0 }
+        - { kind: immediate, value: 0, size_bits: 32 }
+    flags_effect: equivalent
+    size_delta: 2
+    weight: 0.4

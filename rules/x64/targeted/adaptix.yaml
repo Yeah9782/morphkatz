@@ -1,0 +1,16 @@
+version: 1
+description: |
+  Targeted byte patch for AdaptixC2 agent.x64.bin shellcode.
+  Targeted byte-pair patches for Adaptix agent.
+  Swaps MOVZX (0F B6) for MOVSX (0F BE) in a byte-load; downstream code writes
+  the same low-byte so the high-byte extension is irrelevant.
+
+rules:
+  - id: x64.adaptix.movzx_to_movsx
+    description: "0F B6 55 12 88 10 -> 0F BE 55 12 88 10"
+    raw:
+      from: "0F B6 55 12 88 10"
+      to:   "0F BE 55 12 88 10"
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 1.0

@@ -1,0 +1,25 @@
+version: 1
+description: |
+  Targeted byte patches for TheWover/donut shellcode loaders.
+  Targeted byte-pair patches for Donut shellcode loader.
+  Semantics: "xor eax,eax; jmp short" rewritten as "sub eax,eax; jmp short" —
+  identical effect, different lead bytes.
+
+rules:
+  - id: x64.donut.zero_eax_variant_1
+    description: "33 C0 EB 08 -> 29 C0 EB 08 (xor eax,eax; jmp 0x0a -> sub eax,eax; jmp 0x0a)"
+    raw:
+      from: "33 C0 EB 08"
+      to:   "29 C0 EB 08"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.donut.zero_edx_after_je
+    description: "74 14 33 D2 -> 74 14 29 D2 (je short; xor edx,edx -> je short; sub edx,edx)"
+    raw:
+      from: "74 14 33 D2"
+      to:   "74 14 29 D2"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0
