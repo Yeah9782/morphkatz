@@ -8,6 +8,8 @@ add_executable(morphkatz_tests
     unit/flag_liveness_test.cpp
     unit/rule_loader_test.cpp
     unit/rule_matcher_test.cpp
+    unit/rule_schema_roundtrip_test.cpp
+    unit/rule_equivalence_proof_test.cpp
     unit/cfg_test.cpp
     unit/patcher_test.cpp
     unit/polymorph_test.cpp
