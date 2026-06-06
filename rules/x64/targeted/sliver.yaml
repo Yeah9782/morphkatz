@@ -1,0 +1,35 @@
+version: 1
+description: |
+  Targeted byte-pair patches for BishopFox/sliver implants (x64).
+
+  Pattern provenance: Sliver implants are Go binaries with a recognisable
+  runtime prologue. The patterns below target the small native shims
+  Sliver emits around the Go entry point and the XOR-loop zeroing
+  idioms its packager produces. They are conservative anchors (>= 7
+  bytes) derived from the public Sliver source tree; rebuild-specific
+  byte offsets may shift between Sliver releases, so rule authors
+  should validate against the current build before relying on the
+  signature break.
+
+  Equivalence class follows the audited Donut pack
+  (XOR same-reg <-> SUB same-reg with identical flag effect under the
+  declared `equivalent_if { CF, OF dead }` gate).
+
+rules:
+  - id: x64.sliver.zero_rax_after_prologue
+    description: "Go prologue + xor rax,rax  ->  same prologue + sub rax,rax"
+    raw:
+      from: "55 48 89 E5 48 31 C0"
+      to:   "55 48 89 E5 48 29 C0"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.sliver.zero_rcx_pre_call
+    description: "mov rdi, rsp + xor rcx,rcx  ->  same + sub rcx,rcx"
+    raw:
+      from: "48 89 E7 48 31 C9"
+      to:   "48 89 E7 48 29 C9"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0

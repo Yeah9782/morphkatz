@@ -1,0 +1,35 @@
+version: 1
+description: |
+  Targeted byte-pair patches for HavocFramework demon binaries (x64).
+
+  Pattern provenance: Havoc demons use a recognisable preamble around
+  the sleep-mask and ROP gadget invocation paths. The patterns below
+  target the small native shims emitted by the demon's public source
+  tree (HavocFramework/Havoc) when constructing the per-call thread
+  context. They are conservative anchors (>= 6 bytes) and may shift
+  between Havoc releases - rule authors should validate against the
+  current build.
+
+  Equivalence class follows the audited CobaltStrike pack
+  (mov rdx, rax with downstream-clobbered RDX  ->  push rax; pop rdx;
+  nop, identical observable effect under the `equivalent_if { CF, OF
+  dead }` gate the Havoc CALL site provides).
+
+rules:
+  - id: x64.havoc.mov_rcx_rax_to_pushpop
+    description: "mov rcx, rax + and ecx, 0x0F  ->  push rax; pop rcx; nop; and ecx, 0x0F"
+    raw:
+      from: "48 89 C1 83 E1 0F"
+      to:   "50 59 90 83 E1 0F"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.havoc.zero_r8_pre_syscall
+    description: "Pre-syscall xor r8, r8  ->  sub r8, r8 (changes Defender atom byte)"
+    raw:
+      from: "4D 31 C0 49 89 C9"
+      to:   "4D 29 C0 49 89 C9"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0

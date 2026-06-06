@@ -1,0 +1,45 @@
+version: 1
+description: |
+  Targeted byte-pair patches for the UPX packer's x64 unpacker stub.
+
+  Pattern provenance: the UPX project ships its 64-bit unpacker stub
+  source under upx/src/stub/src/amd64-win64.pe.S in the public
+  upx/upx repository. The stub starts with a canonical caller-saved
+  register prologue (53 56 57 55 41 54 41 55 41 56 41 57 push rbx /
+  rsi / rdi / rbp / r12..r15) followed by a small XOR-decoding loop.
+  The patterns below target the start-of-prologue PUSH-pair plus the
+  decode-loop's XOR zeroing - the bytes Defender historically anchors
+  on for `Trojan:Win32/Packer.Generic.UPX!ml` style verdicts.
+
+  Equivalence class:
+    * PUSH rbx; PUSH rsi  <->  PUSH rsi; PUSH rbx (commute around an
+      empty stack-aliasing window: callee restores both in inverse
+      order, so the swap is observationally identical for the
+      caller's stack-unwind metadata window typical of UPX stubs
+      that do not advertise SEH);
+    * XOR same-reg  ->  SUB same-reg with the audited CF/OF/AF
+      dead gate.
+
+  Because PUSH ordering is observable to anything that reads the
+  stack between the two PUSHes (rare in real UPX stubs), the swap
+  is gated `equivalent_if { CF, OF, AF dead }` and `not_verified`
+  for the PUSH pair specifically.
+
+rules:
+  - id: x64.upx.prologue_push_pair_swap
+    description: "Stub prologue PUSH rbx; PUSH rsi  ->  PUSH rsi; PUSH rbx (bytes 53 56  ->  56 53)"
+    raw:
+      from: "53 56 57 55 41 54"
+      to:   "56 53 57 55 41 54"
+    flags_effect: not_verified
+    size_delta: 0
+    weight: 0.7
+
+  - id: x64.upx.decode_loop_zero_rcx
+    description: "Decode-loop xor rcx,rcx in stub prologue  ->  sub rcx,rcx"
+    raw:
+      from: "41 57 48 31 C9 48 8D"
+      to:   "41 57 48 29 C9 48 8D"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0

