@@ -190,6 +190,45 @@ jobs:
           Remove-MpPreference -ExclusionPath "$env:RUNNER_TEMP" -ErrorAction SilentlyContinue
           Remove-MpPreference -ExclusionPath "$env:GITHUB_WORKSPACE" -ErrorAction SilentlyContinue
 
+  rules-equivalence-proof:
+    name: rules-equivalence-proof (Unicorn harness, every PR)
+    # Dedicated fast PR gate for the YAML rule packs. Builds the smallest
+    # release preset and runs the Unicorn-backed equivalence proof harness
+    # (tests/unit/rule_equivalence_proof_test.cpp) plus the schema
+    # round-trip checks. Surfaces a single named check on the PR review
+    # page so a malformed flags_value_differs_in or a typoed predicate
+    # fails loudly instead of hiding behind 170 unrelated test results.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: ilammy/msvc-dev-cmd@v1
+        with: { arch: x64 }
+      - uses: lukka/run-vcpkg@v11
+        with: { vcpkgGitCommitId: '2026.03.11', runVcpkgInstall: false }
+      - name: Cache vcpkg binary artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.VCPKG_ROOT }}/buildtrees
+            ${{ env.VCPKG_ROOT }}/downloads
+            ${{ env.VCPKG_ROOT }}/packages
+          key: vcpkg-${{ runner.os }}-rules-equivalence-${{ hashFiles('vcpkg.json','vcpkg-configuration.json') }}
+      - name: Configure
+        run: cmake --preset ninja-x64-release
+      - name: Build (tests only)
+        run: cmake --build --preset ninja-x64-release --target morphkatz_tests --parallel
+      - name: Run rules equivalence + schema gate
+        # Pattern matches every test name produced by
+        # tests/unit/rule_equivalence_proof_test.cpp and
+        # tests/unit/rule_schema_roundtrip_test.cpp. Label filter keeps
+        # the rest of the suite out.
+        run: >
+          ctest --preset ninja-x64-release -L unit
+          -R "equivalence proof|YAML rule pack|duplicate rule ids"
+          --output-on-failure
+
   fuzz-smoke:
     name: fuzz-smoke (clang-cl libFuzzer, 60s)
     runs-on: windows-latest
